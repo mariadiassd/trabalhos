@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <title>Encontre a equipe técnica mais próxima</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: #e6f0fa;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .form-group {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.form-group input,
+.form-group button {
+  flex: 1;
+  font-size: 1rem;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #bcd;
+}
+
+.form-group button {
+  background-color: #0077cc;
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.form-group button:hover {
+  background-color: #005fa3;
+}
+
+    .card {
+      background: #ffffff;
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+      max-width: 500px;
+      width: 100%;
+      border-top: 6px solid #0077cc;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #005b99;
+      font-size: 1.7rem;
+      text-align: center;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid #bcd;
+      border-radius: 8px;
+      margin-top: 15px;
+      font-size: 1rem;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #0077cc;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      margin-top: 15px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #005fa3;
+    }
+
+    #resultado {
+      margin-top: 20px;
+      font-size: 1rem;
+      color: #003366;
+      background: #f0f8ff;
+      padding: 15px;
+      border-left: 5px solid #007acc;
+      border-radius: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>Encontre a equipe técnica mais próxima</h2>
+    <div class="form-group">
+        <input type="text" id="cidadeInput" placeholder="Digite uma cidade do Piauí" onkeydown="if(event.key === 'Enter') buscarCidadeMaisProxima()">
+        <button onclick="buscarCidadeMaisProxima()">Buscar</button>
+      </div>
+      <div id="resultado"></div>
+
+  <script>
+    const cidadesTecnicas = {
+      "Bom Jesus": [-9.0713, -44.3594],
+      "Corrente": [-10.4333, -45.1633],
+      "Esperantina": [-3.8889, -42.2333],
+      "Floriano": [-6.7715, -43.0243],
+      "Parnaíba": [-2.905, -41.7754],
+      "Picos": [-7.0767, -41.4677],
+      "Piripiri": [-4.2719, -41.7717],
+      "São Raimundo Nonato": [-9.0123, -42.6984],
+      "Teresina": [-5.0892, -42.8016],
+      "Uruçuí": [-7.2394, -44.5575]
+    };
+
+    async function buscarCidadeMaisProxima() {
+      const cidade = document.getElementById('cidadeInput').value.trim();
+      const resultado = document.getElementById('resultado');
+      resultado.textContent = "";
+
+      if (!cidade) {
+        resultado.textContent = "Por favor, insira uma cidade.";
+        return;
+      }
+
+      const cidadeCapitalizada = cidade.charAt(0).toUpperCase() + cidade.slice(1).toLowerCase();
+      if (cidadesTecnicas.hasOwnProperty(cidadeCapitalizada)) {
+        resultado.innerHTML = `<p><strong>Essa cidade possui equipe técnica in loco!</strong></p>`;
+        return;
+      }
+
+      const url = `https://nominatim.openstreetmap.org/search?format=json&q=${cidade}, Piauí, Brasil`;
+
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (!data || data.length === 0) {
+          resultado.textContent = "Cidade não encontrada.";
+          return;
+        }
+
+        const { lat, lon } = data[0];
+        const distancia = (lat1, lon1, lat2, lon2) => {
+          const toRad = deg => deg * Math.PI / 180;
+          const R = 6371;
+          const dLat = toRad(lat2 - lat1);
+          const dLon = toRad(lon2 - lon1);
+          const a = Math.sin(dLat / 2) ** 2 +
+                    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                    Math.sin(dLon / 2) ** 2;
+          return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        };
+
+        let cidadeMaisProxima = "";
+        let menorDistancia = Infinity;
+
+        for (const [nome, [latC, lonC]] of Object.entries(cidadesTecnicas)) {
+          const d = distancia(parseFloat(lat), parseFloat(lon), latC, lonC);
+          if (d < menorDistancia) {
+            menorDistancia = d;
+            cidadeMaisProxima = nome;
+          }
+        }
+
+        const distanciaKm = menorDistancia.toFixed(2);
+        const tempoHoras = (menorDistancia / 70).toFixed(2);
+        const tempoLegivel = tempoHoras < 1 
+          ? `${Math.round(tempoHoras * 60)} minutos` 
+          : `${Math.floor(tempoHoras)}h ${Math.round((tempoHoras % 1) * 60)}min`;
+
+        resultado.innerHTML = `
+          <p><strong>Destino:</strong> ${cidadeMaisProxima}</p>
+          <p><strong>Distância:</strong> ${distanciaKm} km</p>
+          <p><strong>Tempo estimado:</strong> ${tempoLegivel}</p>
+        `;
+
+      } catch (error) {
+        resultado.textContent = "Erro ao buscar dados. Verifique sua conexão.";
+      }
+    }
+  </script>
+</body>
+</html>
